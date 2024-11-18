@@ -400,3 +400,4 @@ nbdist/
 **/target/
 
 .DS_Store
+.intellijPlatform

@@ -19,6 +19,8 @@ import com.intellij.database.psi.DbTableImpl;
 import com.intellij.database.util.JdbcUtil;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.CommonDataKeys;
+import com.intellij.openapi.actionSystem.LangDataKeys;
+import com.intellij.psi.PsiElement;
 import com.intellij.util.containers.JBIterable;
 
 import java.lang.reflect.InvocationTargetException;
@@ -49,7 +51,13 @@ public class TableUtils {
      * @return {@code List<TableInfo>}
      */
     public static List<TableMetadata> getAllTables(AnActionEvent event) {
-        DbTableImpl table = (DbTableImpl) event.getData(CommonDataKeys.PSI_ELEMENT);
+        PsiElement[] psiElements = event.getData(LangDataKeys.PSI_ELEMENT_ARRAY);
+
+        if (psiElements == null || psiElements.length == 0) {
+            return null;
+        }
+
+        DbTableImpl table = (DbTableImpl) psiElements[0];
         DbElement tableParent = table.getParent();
         assert tableParent != null;
         List<DasTable> list = tableParent.getDasChildren(ObjectKind.TABLE).map(el -> (DasTable) el)

@@ -1,69 +1,46 @@
 plugins {
     id("java")
-    id("org.jetbrains.kotlin.jvm") version "1.7.20"
-    id("org.jetbrains.intellij") version "1.13.1"
+    id("org.jetbrains.kotlin.jvm") version "2.0.0"
+    id("org.jetbrains.intellij.platform") version "2.1.0"
 }
 
-group = "com.easy-query"
-version = "0.0.71"
-
 repositories {
-    maven {
-        //setUrl("https://maven.aliyun.com/nexus/content/groups/public/")
-        setUrl("https://mirrors.cloud.tencent.com/nexus/repository/maven-public/")
+    mavenCentral()
+
+    intellijPlatform {
+        defaultRepositories()
     }
 }
 
-// Configure Gradle IntelliJ Plugin
-// Read more: https://plugins.jetbrains.com/docs/intellij/tools-gradle-intellij-plugin.html
-intellij {
-//    version.set("2023.2.5")
-//    version.set("2022.2.5")
-//    version.set("2023.3")
-    version.set("2024.1")
-    type.set("IU") // Target
-    // IDE Platform
-
-    plugins.set(listOf("com.intellij.java", "org.jetbrains.kotlin", "com.intellij.database"))
-}
-dependencies {
-//    implementation("com.intellij:forms_rt:7.0.3")
-    implementation("cn.hutool:hutool-core:5.8.22")
-    implementation("com.alibaba.fastjson2:fastjson2:2.0.41")
-}
 java {
     sourceCompatibility = JavaVersion.VERSION_17
     targetCompatibility = JavaVersion.VERSION_17
 }
 
-tasks {
-    // Set the JVM compatibility versions
-    withType<JavaCompile> {
-        sourceCompatibility = "1.8"
-        targetCompatibility = "1.8"
-        options.encoding = "utf-8"
+intellijPlatform {
+    pluginConfiguration {
+        name = "com.easy-query"
+        version = "0.0.73"
+        ideaVersion {
+            sinceBuild = "243"
+            untilBuild = provider { null }
+        }
     }
-    withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
-        kotlinOptions.jvmTarget = "1.8"
+}
+
+dependencies {
+    intellijPlatform {
+        intellijIdeaUltimate("2024.3")
+
+        bundledPlugin("com.intellij.java")
+        bundledPlugin("org.jetbrains.kotlin")
+        bundledPlugin("com.intellij.database")
+
+        pluginVerifier()
+        zipSigner()
+        instrumentationTools()
     }
 
-    patchPluginXml {
-        //插件起始支持版本
-        sinceBuild.set("222")
-        //插件结束支持版本
-        untilBuild.set("242.*")
-    }
-
-    signPlugin {
-        certificateChain.set(System.getenv("CERTIFICATE_CHAIN"))
-        privateKey.set(System.getenv("PRIVATE_KEY"))
-        password.set(System.getenv("PRIVATE_KEY_PASSWORD"))
-    }
-
-    publishPlugin {
-        token.set(System.getenv("PUBLISH_TOKEN"))
-    }
-    buildSearchableOptions {
-        enabled = false
-    }
+    implementation("cn.hutool:hutool-core:5.8.25")
+    implementation("com.alibaba.fastjson2:fastjson2:2.0.41")
 }

@@ -86,7 +86,7 @@ public class StructDTODialog extends JDialog {
         setContentPane(contentPane);
         setModal(true);
         getRootPane().setDefaultButton(buttonOK);
-        setSize(800, 900);
+        setSize(800, 700);
         setTitle("Struct DTO");
         DialogUtil.centerShow(this);
 

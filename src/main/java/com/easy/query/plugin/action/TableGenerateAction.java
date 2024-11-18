@@ -3,10 +3,8 @@ package com.easy.query.plugin.action;
 import com.easy.query.plugin.core.util.ProjectUtils;
 import com.easy.query.plugin.windows.EntityTableGenerateDialog;
 import com.intellij.database.model.DasTable;
-import com.intellij.openapi.actionSystem.ActionUpdateThread;
-import com.intellij.openapi.actionSystem.AnAction;
-import com.intellij.openapi.actionSystem.AnActionEvent;
-import com.intellij.openapi.actionSystem.CommonDataKeys;
+import com.intellij.openapi.actionSystem.*;
+import com.intellij.psi.PsiElement;
 import org.jetbrains.annotations.NotNull;
 
 import javax.swing.*;
@@ -28,8 +26,13 @@ public class TableGenerateAction extends AnAction {
      */
     @Override
     public void update(AnActionEvent e) {
-        Object selectedElement = e.getData(CommonDataKeys.PSI_ELEMENT);
-        boolean isSelectedTable = selectedElement instanceof DasTable;
+        PsiElement[] psiElements = e.getData(LangDataKeys.PSI_ELEMENT_ARRAY);
+
+        if (psiElements == null || psiElements.length == 0) {
+            return;
+        }
+
+        boolean isSelectedTable = psiElements[0] instanceof DasTable;
         e.getPresentation().setVisible(isSelectedTable);
     }
 

@@ -56,7 +56,7 @@ public class EntitySelectDialog extends JDialog {
         setModal(true);
         getRootPane().setDefaultButton(buttonOK);
 
-        setSize(800, 900);
+        setSize(800, 700);
         setTitle("Struct DTO Entity Select");
         DialogUtil.centerShow(this);
         Project project = structDTOEntityContext.getProject();
