@@ -27,6 +27,10 @@
     </ul>
     ]]></description>
     <change-notes><![CDATA[
+    <h3>0.0.73</h3>
+    <ul>
+    <li>支持2024.3</li>
+    </ul>
     <h3>0.0.71</h3>
     <ul>
     <li>支持kt选择kapt编译</li>
@@ -185,6 +189,12 @@
         </action>
         <action id="com.easy.query.plugin.action.AutoCompileAction"
                 class="com.easy.query.plugin.action.AutoCompileAction" text="AutoCompile"
+                icon="/icons/eq.svg">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+            <add-to-group group-id="GenerateGroup" anchor="first"/>
+        </action>
+        <action id="com.easy.query.plugin.action.StructDTOModifyAction"
+                class="com.easy.query.plugin.action.StructDTOModifyAction" text="StructDTOModify"
                 icon="/icons/eq.svg">
             <add-to-group group-id="ToolsMenu" anchor="last"/>
             <add-to-group group-id="GenerateGroup" anchor="first"/>

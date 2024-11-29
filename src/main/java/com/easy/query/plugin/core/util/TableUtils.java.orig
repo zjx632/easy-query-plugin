@@ -22,7 +22,12 @@ import com.intellij.database.util.JdbcUtil;
 import com.intellij.database.view.DatabaseCoreUiService;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.CommonDataKeys;
+<<<<<<< HEAD
+import com.intellij.openapi.actionSystem.LangDataKeys;
+import com.intellij.psi.PsiElement;
+=======
 import com.intellij.openapi.project.Project;
+>>>>>>> main
 import com.intellij.util.containers.JBIterable;
 
 import java.lang.reflect.InvocationTargetException;
@@ -53,6 +58,24 @@ public class TableUtils {
      * @return {@code List<TableInfo>}
      */
     public static List<TableMetadata> getAllTables(AnActionEvent event) {
+<<<<<<< HEAD
+        PsiElement[] psiElements = event.getData(LangDataKeys.PSI_ELEMENT_ARRAY);
+
+        if (psiElements == null || psiElements.length == 0) {
+            return null;
+        }
+
+        DbTableImpl table = (DbTableImpl) psiElements[0];
+        DbElement tableParent = table.getParent();
+        assert tableParent != null;
+        List<DasTable> list = tableParent.getDasChildren(ObjectKind.TABLE).map(el -> (DasTable) el)
+                .toList();
+        List<DasTable> viewList = tableParent.getDasChildren(ObjectKind.VIEW).map(el -> (DasTable) el)
+                .toList();
+        List<DasTable> dasTables = new ArrayList<>(list);
+        dasTables.addAll(viewList);
+        return getTableInfoList(dasTables);
+=======
         List<DasTable> dasTables = getDasTables(event);
         return getTableInfoList(dasTables,event.getProject());
     }
@@ -85,6 +108,7 @@ public class TableUtils {
         }
         return dasTables;
 
+>>>>>>> main
     }
 
     public static List<TableMetadata> getTableInfoList(List<DasTable> selectedTableList,Project project) {
