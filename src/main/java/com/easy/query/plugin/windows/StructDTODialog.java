@@ -23,16 +23,16 @@ import com.intellij.openapi.ui.Messages;
 import org.apache.commons.lang3.StringUtils;
 
 import javax.swing.*;
-import javax.swing.tree.DefaultMutableTreeNode;
-import javax.swing.tree.DefaultTreeModel;
-import javax.swing.tree.TreeModel;
-import javax.swing.tree.TreePath;
+import javax.swing.tree.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -90,7 +90,6 @@ public class StructDTODialog extends JDialog {
         setTitle("Struct DTO");
         DialogUtil.centerShow(this);
 
-
         buttonOK.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
                 onOK();
@@ -118,12 +117,13 @@ public class StructDTODialog extends JDialog {
             }
         }, KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT);
         dataCheck.setSelected(true);
-        BoxLayout boxLayout = new BoxLayout( dynamicBtnPanel, BoxLayout.LINE_AXIS );
-        dynamicBtnPanel.setLayout( boxLayout );
+        BoxLayout boxLayout = new BoxLayout(dynamicBtnPanel, BoxLayout.LINE_AXIS);
+        dynamicBtnPanel.setLayout(boxLayout);
         dynamicIgnoreButtons(structDTOContext.getProject());
     }
-    private void dynamicIgnoreButtons(Project project){
-        this.buttonMaps=new LinkedHashMap<>();
+
+    private void dynamicIgnoreButtons(Project project) {
+        this.buttonMaps = new LinkedHashMap<>();
         EasyQueryConfig config = EasyQueryQueryPluginConfigData.getAllEnvStructDTOIgnore(new EasyQueryConfig());
         if (config.getConfig() == null) {
             config.setConfig(new HashMap<>());
@@ -144,9 +144,9 @@ public class StructDTODialog extends JDialog {
 
     }
 
-    private void onIgnoreCancel(String key){
+    private void onIgnoreCancel(String key) {
         String s = this.buttonMaps.get(key);
-        if(s!=null){
+        if (s != null) {
             List<String> ignoreProperties = Arrays.asList(s.split(","));
 
             TreePath[] checkedPaths = entityProps.getCheckedPaths();
@@ -162,13 +162,15 @@ public class StructDTODialog extends JDialog {
             }
         }
     }
-    private void initIgnoreButtons(String setting){
+
+    private void initIgnoreButtons(String setting) {
         try {
 
-            LinkedHashMap<String, String> configMap = JSONObject.parseObject(setting, new TypeReference<LinkedHashMap<String, String>>() {
-            });
+            LinkedHashMap<String, String> configMap = JSONObject.parseObject(setting,
+                    new TypeReference<LinkedHashMap<String, String>>() {
+                    });
             buttonMaps.putAll(configMap);
-        }catch (Exception ignored){
+        } catch (Exception ignored) {
 
         }
     }
@@ -192,11 +194,11 @@ public class StructDTODialog extends JDialog {
             return;
         }
 
-
         List<TreeClassNode> nodeList = Arrays.stream(checkedPaths).filter(o -> o.getPathCount() > 1)
                 .map(o -> {
                     int pathCount = o.getPathCount();
-                    ClassNode classNode = (ClassNode) ((DefaultMutableTreeNode) o.getLastPathComponent()).getUserObject();
+                    ClassNode classNode = (ClassNode) ((DefaultMutableTreeNode) o.getLastPathComponent())
+                            .getUserObject();
                     return new TreeClassNode(pathCount, classNode);
                 }).sorted((a, b) -> {
                     if (a.getPathCount() != b.getPathCount()) {
@@ -206,23 +208,23 @@ public class StructDTODialog extends JDialog {
                     }
                 }).collect(Collectors.toList());
 
-
         Iterator<TreeClassNode> iterator = nodeList.iterator();
         TreeClassNode appNode = iterator.next();
         ClassNode app = appNode.getClassNode();
-        StructDTOApp structDTOApp = new StructDTOApp(app.getName(), app.getOwner(), structDTOContext.getPackageName(), app.getSort());
+        StructDTOApp structDTOApp = new StructDTOApp(app.getName(), app.getOwner(), structDTOContext.getPackageName(),
+                app.getSort());
 
         String entityDTOName = "InitDTOName";
         String dtoClassName;
         if (StrUtil.isNotBlank(structDTOContext.getDtoClassName())) {
             // 如果从上下文传递了DTO
             dtoClassName = structDTOContext.getDtoClassName();
-        }else{
+        } else {
             dtoClassName = StrUtil.subAfter(structDTOApp.getEntityName(), ".", true) + "DTO";
         }
 
-
-        Messages.InputDialog dialog = new Messages.InputDialog("请输入DTO名称", "提示名称", Messages.getQuestionIcon(), dtoClassName, new InputAnyValidatorImpl());
+        Messages.InputDialog dialog = new Messages.InputDialog("请输入DTO名称", "提示名称", Messages.getQuestionIcon(),
+                dtoClassName, new InputAnyValidatorImpl());
         dialog.show();
         if (dialog.isOK()) {
             String dtoName = dialog.getInputString();
@@ -235,14 +237,14 @@ public class StructDTODialog extends JDialog {
             return;
         }
 
-
-        RenderStructDTOContext renderStructDTOContext = new RenderStructDTOContext(structDTOContext.getProject(), structDTOContext.getPath(), structDTOContext.getPackageName(), entityDTOName, structDTOApp, structDTOContext.getModule());
+        RenderStructDTOContext renderStructDTOContext = new RenderStructDTOContext(structDTOContext.getProject(),
+                structDTOContext.getPath(), structDTOContext.getPackageName(), entityDTOName, structDTOApp,
+                structDTOContext.getModule());
         renderStructDTOContext.setData(dataCheck.isSelected());
         renderStructDTOContext.getImports().addAll(structDTOContext.getImports());
 
         // 如果传入了DTO ClassName 说明是来自修改, 此时需要删除源文件
         renderStructDTOContext.setDeleteExistsFile(StrUtil.isNotBlank(structDTOContext.getDtoClassName()));
-
 
         PropAppendable base = structDTOApp;
         int i = 0;
@@ -254,37 +256,46 @@ public class StructDTODialog extends JDialog {
             ClassNode classNode = treeClassNode.getClassNode();
             if (treeClassNode.getPathCount() > 3) {
 //                    StructDTOProp structDTOProp = base.getProps().stream().filter(o -> o.isEntity() && Objects.equals(o.getSelfEntityType(), classNode.getOwner())&&Objects.equals(o.getPropName(), classNode.getOwnerPropertyName())).findFirst().orElse(null);
-//                    if (structDTOProp == null) {
-//                        break;
-//                    }
-                PropAppendable propAppendable = renderStructDTOContext.getEntities().stream().filter(o -> (o.getPathCount() + 1) == treeClassNode.getPathCount() && Objects.equals(o.getSelfEntityType(), classNode.getOwner()) && Objects.equals(o.getPropName(), classNode.getOwnerPropertyName())).findFirst().orElse(null);
+                // if (structDTOProp == null) {
+                // break;
+                // }
+                PropAppendable propAppendable = renderStructDTOContext.getEntities().stream()
+                        .filter(o -> (o.getPathCount() + 1) == treeClassNode.getPathCount()
+                                && Objects.equals(o.getSelfEntityType(), classNode.getOwner())
+                                && Objects.equals(o.getPropName(), classNode.getOwnerPropertyName()))
+                        .findFirst().orElse(null);
                 if (propAppendable == null) {
                     break;
                 }
                 base = propAppendable;
             }
-            StructDTOProp structDTOProp = new StructDTOProp(classNode.getName(), classNode.getPropText(), classNode.getOwner(), classNode.isEntity(), classNode.getSelfEntityType(), classNode.getSort(), treeClassNode.getPathCount(),classNode.getOwnerFullName(),classNode.getSelfFullEntityType());
+            StructDTOProp structDTOProp = new StructDTOProp(classNode.getName(), classNode.getPropText(),
+                    classNode.getOwner(), classNode.isEntity(), classNode.getSelfEntityType(), classNode.getSort(),
+                    treeClassNode.getPathCount(), classNode.getOwnerFullName(), classNode.getSelfFullEntityType());
             structDTOProp.setClassNode(classNode);
             if (structDTOProp.isEntity()) {
-                String dotName = "Internal"+StrUtil.upperFirst(classNode.getName());
-                if(!dtoNames.contains(dotName)){
+                String dotName = "Internal" + StrUtil.upperFirst(classNode.getName());
+                if (!dtoNames.contains(dotName)) {
                     dtoNames.add(dotName);
                     structDTOProp.setDtoName(dotName);
-                }else{
-                    structDTOProp.setDtoName(dotName+(i++));
+                } else {
+                    structDTOProp.setDtoName(dotName + (i++));
                 }
                 if (StringUtils.isNotBlank(structDTOProp.getPropText())) {
                     if (structDTOProp.getPropText().contains("<") && structDTOProp.getPropText().contains(">")) {
                         String regex = "<\\s*" + structDTOProp.getSelfEntityType() + "\\s*>";
-                        String newPropText = structDTOProp.getPropText().replaceAll(regex, "<" + structDTOProp.getDtoName() + ">");
+                        String newPropText = structDTOProp.getPropText().replaceAll(regex,
+                                "<" + structDTOProp.getDtoName() + ">");
                         structDTOProp.setPropText(newPropText);
                     } else {
 
                         String regex = "private\\s+" + structDTOProp.getSelfEntityType();
-                        String newPropText = structDTOProp.getPropText().replaceAll(regex, "private " + structDTOProp.getDtoName());
+                        String newPropText = structDTOProp.getPropText().replaceAll(regex,
+                                "private " + structDTOProp.getDtoName());
                         structDTOProp.setPropText(newPropText);
                     }
-                    if (structDTOProp.getPropText().contains("@Navigate(") && StringUtils.isNotBlank(classNode.getRelationType())) {
+                    if (structDTOProp.getPropText().contains("@Navigate(")
+                            && StringUtils.isNotBlank(classNode.getRelationType())) {
                         String regex = "@Navigate\\(.*?\\)";
 
                         Pattern pattern = Pattern.compile(regex, Pattern.DOTALL);
@@ -297,27 +308,28 @@ public class StructDTODialog extends JDialog {
                             structDTOProp.setPropText(newPropText);
                         }
 //                        String newPropText = structDTOProp.getPropText().replaceAll(regex, "@Navigate(value = " + classNode.getRelationType() + ")");
-//                        structDTOProp.setPropText(newPropText);
+                        // structDTOProp.setPropText(newPropText);
                     }
                 }
                 renderStructDTOContext.getEntities().add(structDTOProp);
             }
             if (structDTOProp.getPropText().contains("@Column(")) {
                 String regex = "@Column\\(.*?\\)";
-                if (StringUtils.isNotBlank(classNode.getConversion())||StringUtils.isNotBlank(classNode.getColumnValue())) {
-                    String columnText="@Column(";
-                    if(StringUtils.isNotBlank(classNode.getColumnValue())){
-                        columnText+="value = \""+classNode.getColumnValue()+"\"";
-                        if(StringUtils.isNotBlank(classNode.getConversion())){
-                            columnText+=",";
+                if (StringUtils.isNotBlank(classNode.getConversion())
+                        || StringUtils.isNotBlank(classNode.getColumnValue())) {
+                    String columnText = "@Column(";
+                    if (StringUtils.isNotBlank(classNode.getColumnValue())) {
+                        columnText += "value = \"" + classNode.getColumnValue() + "\"";
+                        if (StringUtils.isNotBlank(classNode.getConversion())) {
+                            columnText += ",";
                         }
                     }
-                    if(StringUtils.isNotBlank(classNode.getConversion())){
-                        columnText+="conversion = "+classNode.getConversion();
+                    if (StringUtils.isNotBlank(classNode.getConversion())) {
+                        columnText += "conversion = " + classNode.getConversion();
                     }
-                    columnText+=")";
+                    columnText += ")";
                     String newPropText = structDTOProp.getPropText().replaceAll(regex, columnText);
-//                    (conversion = " + classNode.getConversion() + ")
+                    // (conversion = " + classNode.getConversion() + ")
 
                     structDTOProp.setPropText(newPropText);
                 } else {
@@ -337,48 +349,127 @@ public class StructDTODialog extends JDialog {
         dispose();
     }
 
-
     private void onCancel() {
         // add your code here if necessary
         dispose();
     }
 
-    //    public static void main(String[] args) {
-//        StructDTODialog dialog = new StructDTODialog();
-//        dialog.pack();
-//        dialog.setVisible(true);
-//        System.exit(0);
-//    }
+    // public static void main(String[] args) {
+    // StructDTODialog dialog = new StructDTODialog();
+    // dialog.pack();
+    // dialog.setVisible(true);
+    // System.exit(0);
+    // }
     private void createUIComponents() {
         this.treeModel = initTree(classNodes);
         entityProps = new JCheckBoxTree(treeModel);
+        // UI创建完成后, 默认选中已经存在的路径
+        selectDtoPropsPathAfterUiCreate();
     }
 
+    /** UI 创建完成后，选择已经存在的 DTO 路径 */
+    private void selectDtoPropsPathAfterUiCreate() {
 
-//    protected static TreeModel getDefaultTreeModel() {
-//        DefaultMutableTreeNode root = new DefaultMutableTreeNode("JTree");
-//        DefaultMutableTreeNode      parent;
-//
-//        parent = new DefaultMutableTreeNode("colors");
-//        root.add(parent);
-//        parent.add(new DefaultMutableTreeNode("blue"));
-//        parent.add(new DefaultMutableTreeNode("violet"));
-//        parent.add(new DefaultMutableTreeNode("red"));
-//        parent.add(new DefaultMutableTreeNode("yellow"));
-//
-//        parent = new DefaultMutableTreeNode("sports");
-//        root.add(parent);
-//        parent.add(new DefaultMutableTreeNode("basketball"));
-//        parent.add(new DefaultMutableTreeNode("soccer"));
-//        parent.add(new DefaultMutableTreeNode("football"));
-//        parent.add(new DefaultMutableTreeNode("hockey"));
-//
-//        parent = new DefaultMutableTreeNode("food");
-//        root.add(parent);
-//        parent.add(new DefaultMutableTreeNode("hot dogs"));
-//        parent.add(new DefaultMutableTreeNode("pizza"));
-//        parent.add(new DefaultMutableTreeNode("ravioli"));
-//        parent.add(new DefaultMutableTreeNode("bananas"));
-//        return new DefaultTreeModel(root);
-//    }
+
+        DefaultMutableTreeNode root = (DefaultMutableTreeNode) treeModel.getRoot();
+
+        if (structDTOContext == null || !StringUtils.isNotBlank(structDTOContext.getDtoClassName())) {
+            // 如果不存在 dtoClass，不进行选择
+            return;
+        }
+        // 如果存在 dtoClass，从中获取路径进行选择
+        Set<String> selectedPaths = getSelectedPathsFromDTO();
+
+        Enumeration<TreeNode> enumeration = root.preorderEnumeration();
+        while (enumeration.hasMoreElements()) {
+            DefaultMutableTreeNode node = (DefaultMutableTreeNode) enumeration.nextElement();
+            if (node.getUserObject() instanceof ClassNode) {
+                ClassNode classNode = (ClassNode) node.getUserObject();
+                if (selectedPaths.contains(classNode.getName())) {
+                    TreePath treePath = new TreePath(node.getPath());
+                    entityProps.checkTreeItem(treePath, true);
+                }
+            }
+        }
+
+    }
+
+    /** 从 dtoClass 解析需要选择的路径 */
+    private Set<String> getSelectedPathsFromDTO() {
+        Set<String> paths = new HashSet<>();
+
+        try {
+            String dtoFilePath = structDTOContext.getPath();
+
+            // 读取 DTO 文件内容
+            String content = new String(Files.readAllBytes(Paths.get(dtoFilePath)));
+
+            // 解析字段声明
+            Pattern fieldPattern = Pattern.compile("private\\s+([\\w<>\\s,]+)\\s+(\\w+)\\s*;");
+            Matcher matcher = fieldPattern.matcher(content);
+
+            while (matcher.find()) {
+                String fieldType = matcher.group(1).trim();
+                String fieldName = matcher.group(2);
+
+                // 添加基本字段
+                paths.add(fieldName);
+
+                // 处理嵌套的 DTO 类型
+                if (fieldType.contains("Internal")) {
+                    // 如果是内部 DTO 类型，递归解析其字段
+                    Pattern innerClassPattern = Pattern.compile("class\\s+" + fieldType + "\\s+\\{([^}]+)\\}");
+                    Matcher innerMatcher = innerClassPattern.matcher(content);
+                    if (innerMatcher.find()) {
+                        String innerClassContent = innerMatcher.group(1);
+                        Pattern innerFieldPattern = Pattern.compile("private\\s+([\\w<>\\s,]+)\\s+(\\w+)\\s*;");
+                        Matcher innerFieldMatcher = innerFieldPattern.matcher(innerClassContent);
+                        while (innerFieldMatcher.find()) {
+                            paths.add(fieldName + "." + innerFieldMatcher.group(2));
+                        }
+                    }
+                }
+
+            }
+
+            // 添加导入的类型
+            for (String importClass : structDTOContext.getImports()) {
+                if (content.contains(importClass)) {
+                    paths.add(StrUtil.subAfter(importClass, ".", true));
+                }
+            }
+
+        } catch (Exception e) {
+            NotificationUtils.notifyError("错误","解析 DTO 类型失败", structDTOContext.getProject());
+        }
+
+        return paths;
+    }
+
+    // protected static TreeModel getDefaultTreeModel() {
+    // DefaultMutableTreeNode root = new DefaultMutableTreeNode("JTree");
+    // DefaultMutableTreeNode parent;
+    //
+    // parent = new DefaultMutableTreeNode("colors");
+    // root.add(parent);
+    // parent.add(new DefaultMutableTreeNode("blue"));
+    // parent.add(new DefaultMutableTreeNode("violet"));
+    // parent.add(new DefaultMutableTreeNode("red"));
+    // parent.add(new DefaultMutableTreeNode("yellow"));
+    //
+    // parent = new DefaultMutableTreeNode("sports");
+    // root.add(parent);
+    // parent.add(new DefaultMutableTreeNode("basketball"));
+    // parent.add(new DefaultMutableTreeNode("soccer"));
+    // parent.add(new DefaultMutableTreeNode("football"));
+    // parent.add(new DefaultMutableTreeNode("hockey"));
+    //
+    // parent = new DefaultMutableTreeNode("food");
+    // root.add(parent);
+    // parent.add(new DefaultMutableTreeNode("hot dogs"));
+    // parent.add(new DefaultMutableTreeNode("pizza"));
+    // parent.add(new DefaultMutableTreeNode("ravioli"));
+    // parent.add(new DefaultMutableTreeNode("bananas"));
+    // return new DefaultTreeModel(root);
+    // }
 }

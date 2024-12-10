@@ -275,8 +275,19 @@ public class JCheckBoxTree extends JTree {
         updatePredecessorsWithCheckMode(parentPath, check);
     }
 
+    /** 勾选指定路径 不触发子节点的变化 */
+    public void checkTreeItem(TreePath tp, boolean check){
+        CheckedNode cn = nodesCheckingState.get(tp);
+        cn.isSelected = check;
+        if (check) {
+            checkedPaths.add(tp);
+        } else {
+            checkedPaths.remove(tp);
+        }
+    }
+
     // Recursively checks/unchecks a subtree
-    protected void checkSubTree(TreePath tp, boolean check) {
+    public void checkSubTree(TreePath tp, boolean check) {
         CheckedNode cn = nodesCheckingState.get(tp);
         cn.isSelected = check;
         DefaultMutableTreeNode node = (DefaultMutableTreeNode) tp.getLastPathComponent();
