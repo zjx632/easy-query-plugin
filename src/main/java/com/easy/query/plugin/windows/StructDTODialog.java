@@ -213,7 +213,16 @@ public class StructDTODialog extends JDialog {
         StructDTOApp structDTOApp = new StructDTOApp(app.getName(), app.getOwner(), structDTOContext.getPackageName(), app.getSort());
 
         String entityDTOName = "InitDTOName";
-        Messages.InputDialog dialog = new Messages.InputDialog("请输入DTO名称", "提示名称", Messages.getQuestionIcon(), StrUtil.subAfter(structDTOApp.getEntityName(), ".", true) + "DTO", new InputAnyValidatorImpl());
+        String dtoClassName;
+        if (StrUtil.isNotBlank(structDTOContext.getDtoClassName())) {
+            // 如果从上下文传递了DTO
+            dtoClassName = structDTOContext.getDtoClassName();
+        }else{
+            dtoClassName = StrUtil.subAfter(structDTOApp.getEntityName(), ".", true) + "DTO";
+        }
+
+
+        Messages.InputDialog dialog = new Messages.InputDialog("请输入DTO名称", "提示名称", Messages.getQuestionIcon(), dtoClassName, new InputAnyValidatorImpl());
         dialog.show();
         if (dialog.isOK()) {
             String dtoName = dialog.getInputString();
@@ -230,6 +239,11 @@ public class StructDTODialog extends JDialog {
         RenderStructDTOContext renderStructDTOContext = new RenderStructDTOContext(structDTOContext.getProject(), structDTOContext.getPath(), structDTOContext.getPackageName(), entityDTOName, structDTOApp, structDTOContext.getModule());
         renderStructDTOContext.setData(dataCheck.isSelected());
         renderStructDTOContext.getImports().addAll(structDTOContext.getImports());
+
+        // 如果传入了DTO ClassName 说明是来自修改, 此时需要删除源文件
+        renderStructDTOContext.setDeleteExistsFile(StrUtil.isNotBlank(structDTOContext.getDtoClassName()));
+
+
         PropAppendable base = structDTOApp;
         int i = 0;
 

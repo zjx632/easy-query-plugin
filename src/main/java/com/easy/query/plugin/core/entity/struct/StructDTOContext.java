@@ -24,6 +24,9 @@ public class StructDTOContext {
     private final Set<String> imports;
     private boolean success;
 
+    /** 修改DTO的时候选中的DTO类名 */
+    private String dtoClassName;
+
     public StructDTOContext(Project project, String path, String packageName, Module module, Map<String, Map<String,ClassNode>> entityProps) {
         this.project = project;
 
@@ -64,5 +67,13 @@ public class StructDTOContext {
 
     public void setSuccess(boolean success) {
         this.success = success;
+    }
+
+    public String getDtoClassName() {
+        return dtoClassName;
+    }
+
+    public void setDtoClassName(String dtoClassName) {
+        this.dtoClassName = dtoClassName;
     }
 }
