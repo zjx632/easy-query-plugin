@@ -27,6 +27,9 @@ public class RenderStructDTOContext {
     private final List<PropAppendable> entities;
     private final Set<String> imports;
 
+    /** 是否删除现有文件 */
+    private Boolean deleteExistsFile = false;
+
     public RenderStructDTOContext(Project project, String path, String packageName, String dtoName, StructDTOApp dtoApp, Module module) {
         this.project = project;
 
@@ -89,5 +92,13 @@ public class RenderStructDTOContext {
 
     public String getEntityClassName(){
         return dtoApp.getEntityName();
+    }
+
+    public Boolean getDeleteExistsFile() {
+        return deleteExistsFile;
+    }
+
+    public void setDeleteExistsFile(Boolean deleteExistsFile) {
+        this.deleteExistsFile = deleteExistsFile;
     }
 }

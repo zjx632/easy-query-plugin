@@ -22,7 +22,19 @@ public class StructDTOEntityContext {
     private final Module module;
     private final Map<String, PsiClass> entityClass;
 
-    public StructDTOEntityContext(Project project, String path, String packageName, Module module, Map<String, PsiClass> entityClass) {
+    /** 修改的时候的 dtoClassName 保存的时候用于回填 */
+    private String dtoClassName;
+
+    public String getDtoClassName() {
+        return dtoClassName;
+    }
+
+    public void setDtoClassName(String dtoClassName) {
+        this.dtoClassName = dtoClassName;
+    }
+
+    public StructDTOEntityContext(Project project, String path, String packageName, Module module,
+            Map<String, PsiClass> entityClass) {
         this.project = project;
 
         this.path = path;
