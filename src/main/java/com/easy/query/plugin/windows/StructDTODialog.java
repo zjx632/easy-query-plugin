@@ -296,9 +296,10 @@ public class StructDTODialog extends JDialog {
                     }
                     if (structDTOProp.getPropText().contains("@Navigate(")
                             && StringUtils.isNotBlank(classNode.getRelationType())) {
-                        String regex = "@Navigate\\(.*?\\)";
+                        // 匹配@Navigate注解及其括号内的内容
+                        String regex = "@Navigate\\(([^()]*(?:\\([^()]*\\)[^()]*)*)\\)";
 
-                        Pattern pattern = Pattern.compile(regex, Pattern.DOTALL);
+                        Pattern pattern = Pattern.compile(regex);
                         Matcher matcher = pattern.matcher(structDTOProp.getPropText());
 
                         if (matcher.find()) {
@@ -370,7 +371,6 @@ public class StructDTODialog extends JDialog {
     /** UI 创建完成后，选择已经存在的 DTO 路径 */
     private void selectDtoPropsPathAfterUiCreate() {
 
-
         DefaultMutableTreeNode root = (DefaultMutableTreeNode) treeModel.getRoot();
 
         if (structDTOContext == null || !StringUtils.isNotBlank(structDTOContext.getDtoClassName())) {
@@ -440,7 +440,7 @@ public class StructDTODialog extends JDialog {
             }
 
         } catch (Exception e) {
-            NotificationUtils.notifyError("错误","解析 DTO 类型失败", structDTOContext.getProject());
+            NotificationUtils.notifyError("错误", "解析 DTO 类型失败", structDTOContext.getProject());
         }
 
         return paths;
