@@ -1,6 +1,7 @@
 package com.easy.query.plugin.windows;
 
 import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.util.ArrayUtil;
 import cn.hutool.core.util.StrUtil;
 import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.TypeReference;
@@ -236,6 +237,10 @@ public class StructDTODialog extends JDialog {
         // 从psiClass 中获取引入的包
         renderStructDTOContext.getImports().addAll(PsiJavaFileUtil.getQualifiedNameImportSet((PsiJavaFile) psiClass.getContainingFile()));
 
+        // 如果父类中有字段, 则需要把父类的 import 也加入进来
+        if (Objects.nonNull(psiClass.getSuperClass()) && ArrayUtil.isNotEmpty(psiClass.getSuperClass().getFields())) {
+            renderStructDTOContext.getImports().addAll(PsiJavaFileUtil.getQualifiedNameImportSet((PsiJavaFile) psiClass.getSuperClass().getContainingFile()));
+        }
 
         // 如果传入了DTO ClassName 说明是来自修改, 此时需要删除源文件
         renderStructDTOContext.setDeleteExistsFile(StrUtil.isNotBlank(structDTOContext.getDtoClassName()));
@@ -340,6 +345,27 @@ public class StructDTODialog extends JDialog {
             }
             base.addProp(structDTOProp);
         }
+
+
+        // 最终清理下 import, 有些 import 没有必要
+        renderStructDTOContext.getImports().removeIf(imp -> {
+            // 自动生成的 Proxy类 在 dto中无用, 所以需要移除
+            if (StrUtil.contains(imp, ".proxy.") && StrUtil.endWith(imp, "Proxy")) {
+                return true;
+            }
+            // eq 一些在实体上的注解, 在 DTO上也没有用
+            if (StrUtil.equalsAny(imp,
+                    "com.easy.query.core.annotation.EntityProxy",
+                    "com.easy.query.core.annotation.Table",
+                    "com.easy.query.core.annotation.EasyAlias",
+                    "lombok.experimental.FieldNameConstants",
+                    "com.easy.query.core.proxy.ProxyEntityAvailable"
+            )) {
+                return true;
+            }
+            //
+            return false;
+        });
 
         boolean b = RenderEasyQueryTemplate.renderStructDTOType(renderStructDTOContext);
         if (!b) {
