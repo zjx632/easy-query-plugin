@@ -16,10 +16,13 @@ import com.easy.query.plugin.core.entity.struct.StructDTOContext;
 import com.easy.query.plugin.core.persistent.EasyQueryQueryPluginConfigData;
 import com.easy.query.plugin.core.util.DialogUtil;
 import com.easy.query.plugin.core.util.NotificationUtils;
+import com.easy.query.plugin.core.util.PsiJavaFileUtil;
 import com.easy.query.plugin.core.validator.InputAnyValidatorImpl;
 import com.easy.query.plugin.windows.ui.dto2ui.JCheckBoxTree;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
+import com.intellij.psi.PsiClass;
+import com.intellij.psi.PsiJavaFile;
 import org.apache.commons.lang3.StringUtils;
 
 import javax.swing.*;
@@ -241,7 +244,15 @@ public class StructDTODialog extends JDialog {
                 structDTOContext.getPath(), structDTOContext.getPackageName(), entityDTOName, structDTOApp,
                 structDTOContext.getModule());
         renderStructDTOContext.setData(dataCheck.isSelected());
+        // 传递import
         renderStructDTOContext.getImports().addAll(structDTOContext.getImports());
+        // 获取 app 里面的 import , 那里面的 Imports 也要传递进来
+        String selfFullEntityType = app.getSelfFullEntityType();
+        // 根据 selfFullEntityType 获取 psiClass
+        PsiClass psiClass = PsiJavaFileUtil.getPsiClass(structDTOContext.getProject(), selfFullEntityType);
+        // 从psiClass 中获取引入的包
+        renderStructDTOContext.getImports().addAll(PsiJavaFileUtil.getQualifiedNameImportSet((PsiJavaFile) psiClass.getContainingFile()));
+
 
         // 如果传入了DTO ClassName 说明是来自修改, 此时需要删除源文件
         renderStructDTOContext.setDeleteExistsFile(StrUtil.isNotBlank(structDTOContext.getDtoClassName()));
@@ -254,6 +265,16 @@ public class StructDTODialog extends JDialog {
         while (iterator.hasNext()) {
             TreeClassNode treeClassNode = iterator.next();
             ClassNode classNode = treeClassNode.getClassNode();
+
+            if (StrUtil.isNotBlank(classNode.getSelfFullEntityType())) {
+                // 引入了类, 去把对应类的 import 全都提取出来放到里面
+                // 根据 selfFullEntityType 获取 psiClass
+                PsiClass nodePsiClass = PsiJavaFileUtil.getPsiClass(structDTOContext.getProject(), classNode.getSelfFullEntityType());
+                // 从psiClass 中获取引入的包
+                renderStructDTOContext.getImports().addAll(PsiJavaFileUtil.getQualifiedNameImportSet((PsiJavaFile) nodePsiClass.getContainingFile()));
+
+            }
+
             if (treeClassNode.getPathCount() > 3) {
                 PropAppendable propAppendable = renderStructDTOContext.getEntities().stream()
                         .filter(o -> (o.getPathCount() + 1) == treeClassNode.getPathCount()
@@ -302,11 +323,6 @@ public class StructDTODialog extends JDialog {
                             String replacement = "@Navigate(value = " + classNode.getRelationType() + ")";
                             String newPropText = matcher.replaceAll(replacement);
                             structDTOProp.setPropText(newPropText);
-                        }
-
-                        // 如果 @Navigate 类型中包含 "many" 字符串，需要导入 List 类型
-                        if (StrUtil.containsAnyIgnoreCase(classNode.getRelationType(), "many")) {
-                            renderStructDTOContext.getImports().add("java.util.List");
                         }
                     }
                 }
