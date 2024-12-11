@@ -255,10 +255,6 @@ public class StructDTODialog extends JDialog {
             TreeClassNode treeClassNode = iterator.next();
             ClassNode classNode = treeClassNode.getClassNode();
             if (treeClassNode.getPathCount() > 3) {
-//                    StructDTOProp structDTOProp = base.getProps().stream().filter(o -> o.isEntity() && Objects.equals(o.getSelfEntityType(), classNode.getOwner())&&Objects.equals(o.getPropName(), classNode.getOwnerPropertyName())).findFirst().orElse(null);
-                // if (structDTOProp == null) {
-                // break;
-                // }
                 PropAppendable propAppendable = renderStructDTOContext.getEntities().stream()
                         .filter(o -> (o.getPathCount() + 1) == treeClassNode.getPathCount()
                                 && Objects.equals(o.getSelfEntityType(), classNode.getOwner())
@@ -305,11 +301,13 @@ public class StructDTODialog extends JDialog {
                         if (matcher.find()) {
                             String replacement = "@Navigate(value = " + classNode.getRelationType() + ")";
                             String newPropText = matcher.replaceAll(replacement);
-//                            String newPropText = structDTOProp.getPropText().replaceAll(regex, "@Navigate(value = " + classNode.getRelationType() + ")");
                             structDTOProp.setPropText(newPropText);
                         }
-//                        String newPropText = structDTOProp.getPropText().replaceAll(regex, "@Navigate(value = " + classNode.getRelationType() + ")");
-                        // structDTOProp.setPropText(newPropText);
+
+                        // 如果 @Navigate 类型中包含 "many" 字符串，需要导入 List 类型
+                        if (StrUtil.containsAnyIgnoreCase(classNode.getRelationType(), "many")) {
+                            renderStructDTOContext.getImports().add("java.util.List");
+                        }
                     }
                 }
                 renderStructDTOContext.getEntities().add(structDTOProp);
