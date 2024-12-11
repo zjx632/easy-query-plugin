@@ -6,11 +6,7 @@ import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.TypeReference;
 import com.easy.query.plugin.core.RenderEasyQueryTemplate;
 import com.easy.query.plugin.core.config.EasyQueryConfig;
-import com.easy.query.plugin.core.entity.ClassNode;
-import com.easy.query.plugin.core.entity.PropAppendable;
-import com.easy.query.plugin.core.entity.StructDTOApp;
-import com.easy.query.plugin.core.entity.StructDTOProp;
-import com.easy.query.plugin.core.entity.TreeClassNode;
+import com.easy.query.plugin.core.entity.*;
 import com.easy.query.plugin.core.entity.struct.RenderStructDTOContext;
 import com.easy.query.plugin.core.entity.struct.StructDTOContext;
 import com.easy.query.plugin.core.persistent.EasyQueryQueryPluginConfigData;
@@ -22,31 +18,18 @@ import com.easy.query.plugin.windows.ui.dto2ui.JCheckBoxTree;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
 import com.intellij.psi.PsiClass;
+import com.intellij.psi.PsiField;
 import com.intellij.psi.PsiJavaFile;
 import org.apache.commons.lang3.StringUtils;
 
 import javax.swing.*;
 import javax.swing.tree.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.awt.event.KeyEvent;
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.Arrays;
-import java.util.Enumeration;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.awt.event.*;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class StructDTODialog extends JDialog {
     private final StructDTOContext structDTOContext;
@@ -277,9 +260,12 @@ public class StructDTODialog extends JDialog {
 
             if (treeClassNode.getPathCount() > 3) {
                 PropAppendable propAppendable = renderStructDTOContext.getEntities().stream()
-                        .filter(o -> (o.getPathCount() + 1) == treeClassNode.getPathCount()
-                                && Objects.equals(o.getSelfEntityType(), classNode.getOwner())
-                                && Objects.equals(o.getPropName(), classNode.getOwnerPropertyName()))
+                        .filter(o -> {
+                            boolean allow = (o.getPathCount() + 1) == treeClassNode.getPathCount()
+                                    && Objects.equals(o.getSelfEntityType(), classNode.getOwner())
+                                    && Objects.equals(o.getPropName(), classNode.getOwnerPropertyName());
+                            return allow;
+                        })
                         .findFirst().orElse(null);
                 if (propAppendable == null) {
                     break;
@@ -382,7 +368,9 @@ public class StructDTODialog extends JDialog {
         selectDtoPropsPathAfterUiCreate();
     }
 
-    /** UI 创建完成后，选择已经存在的 DTO 路径 */
+    /**
+     * UI 创建完成后，选择已经存在的 DTO 路径
+     */
     private void selectDtoPropsPathAfterUiCreate() {
 
         DefaultMutableTreeNode root = (DefaultMutableTreeNode) treeModel.getRoot();
@@ -392,65 +380,54 @@ public class StructDTODialog extends JDialog {
             return;
         }
         // 如果存在 dtoClass，从中获取路径进行选择
-        Set<String> selectedPaths = getSelectedPathsFromDTO();
+        Set<String> selectedPaths = extractCurrentDTOSelectPath();
 
         Enumeration<TreeNode> enumeration = root.preorderEnumeration();
         while (enumeration.hasMoreElements()) {
             DefaultMutableTreeNode node = (DefaultMutableTreeNode) enumeration.nextElement();
-            if (node.getUserObject() instanceof ClassNode) {
-                ClassNode classNode = (ClassNode) node.getUserObject();
-                if (selectedPaths.contains(classNode.getName())) {
-                    TreePath treePath = new TreePath(node.getPath());
-                    entityProps.checkTreeItem(treePath, true);
-                }
+            Object[] userObjectPaths = node.getUserObjectPath();
+            // 尝试进行全匹配
+            // 如果 数组长度小于3, 则直接勾选上
+            if (userObjectPaths.length < 3) {
+                TreePath treePath = new TreePath(node.getPath());
+                entityProps.checkTreeItem(treePath, true);
+                continue;
+            }
+            // 取 index >1 的元素
+            String nodePath = Arrays.stream(userObjectPaths).skip(2)
+                    .map((o) -> {
+                        if (o instanceof ClassNode) {
+                            return ((ClassNode) o).getName();
+                        }
+                        return "";
+                    })
+                    .filter(StrUtil::isNotBlank)
+                    .collect(Collectors.joining("."));
+
+
+            if (selectedPaths.contains(nodePath)) {
+                TreePath treePath = new TreePath(node.getPath());
+                entityProps.checkTreeItem(treePath, true);
             }
         }
 
     }
 
-    /** 从 dtoClass 解析需要选择的路径 */
-    private Set<String> getSelectedPathsFromDTO() {
+    /**
+     * 从 dtoClass 解析需要选择的路径
+     */
+    private Set<String> extractCurrentDTOSelectPath() {
         Set<String> paths = new HashSet<>();
 
         try {
-            String dtoFilePath = structDTOContext.getPath();
+            PsiClass dtoPsiClass = PsiJavaFileUtil.getPsiClass(structDTOContext.getProject(), structDTOContext.getPackageName() + "." + structDTOContext.getDtoClassName());
+            PsiClass[] innerClasses = dtoPsiClass.getInnerClasses();
+            PsiField[] fields = dtoPsiClass.getFields();
 
-            // 读取 DTO 文件内容
-            String content = new String(Files.readAllBytes(Paths.get(dtoFilePath)));
 
-            // 解析字段声明
-            Pattern fieldPattern = Pattern.compile("private\\s+([\\w<>\\s,]+)\\s+(\\w+)\\s*;");
-            Matcher matcher = fieldPattern.matcher(content);
-
-            while (matcher.find()) {
-                String fieldType = matcher.group(1).trim();
-                String fieldName = matcher.group(2);
-
-                // 添加基本字段
-                paths.add(fieldName);
-
-                // 处理嵌套的 DTO 类型
-                if (fieldType.contains("Internal")) {
-                    // 如果是内部 DTO 类型，递归解析其字段
-                    Pattern innerClassPattern = Pattern.compile("class\\s+" + fieldType + "\\s+\\{([^}]+)\\}");
-                    Matcher innerMatcher = innerClassPattern.matcher(content);
-                    if (innerMatcher.find()) {
-                        String innerClassContent = innerMatcher.group(1);
-                        Pattern innerFieldPattern = Pattern.compile("private\\s+([\\w<>\\s,]+)\\s+(\\w+)\\s*;");
-                        Matcher innerFieldMatcher = innerFieldPattern.matcher(innerClassContent);
-                        while (innerFieldMatcher.find()) {
-                            paths.add(fieldName + "." + innerFieldMatcher.group(2));
-                        }
-                    }
-                }
-
-            }
-
-            // 添加导入的类型
-            for (String importClass : structDTOContext.getImports()) {
-                if (content.contains(importClass)) {
-                    paths.add(StrUtil.subAfter(importClass, ".", true));
-                }
+            // fields 直接添加
+            for (PsiField field : fields) {
+                extractInnerClassFieldPath(paths, "", field, innerClasses);
             }
 
         } catch (Exception e) {
@@ -458,6 +435,37 @@ public class StructDTODialog extends JDialog {
         }
 
         return paths;
+    }
+
+    /**
+     * 提取内部类的字段路径
+     */
+    private void extractInnerClassFieldPath(Set<String> paths, String contextPath, PsiField field, PsiClass[] innerClasses) {
+        // 先把当前路径加进去
+        String currentFieldPath = Stream.of(contextPath, field.getName()).filter(StrUtil::isNotBlank).collect(Collectors.joining("."));
+        paths.add(currentFieldPath);
+
+        // 当前字段加进去之后, 看看字段类型是否是 innerClass
+        String fieldEntityClassName = field.getType().getCanonicalText();
+        PsiClass fieldEntityPsiClass = Arrays.stream(innerClasses)
+                .filter(clazz -> {
+                    // 类型完全一致
+                    String innerClassQualifiedName = clazz.getQualifiedName();
+                    if (StrUtil.equals(innerClassQualifiedName, fieldEntityClassName)) {
+                        return true;
+                    }
+                    // 可能是包含的那种类型, 如 fieldEntityClassName= List<clazz>
+                    return StrUtil.contains(fieldEntityClassName, "<" + innerClassQualifiedName + ">");
+                })
+                .findFirst().orElse(null);
+        if (Objects.nonNull(fieldEntityPsiClass)) {
+            // 有有对应的 innerClass
+            // 获取对应的字段
+            PsiField[] innerFields = fieldEntityPsiClass.getFields();
+            for (PsiField innerField : innerFields) {
+                extractInnerClassFieldPath(paths, currentFieldPath, innerField, innerClasses);
+            }
+        }
     }
 
     // protected static TreeModel getDefaultTreeModel() {

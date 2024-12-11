@@ -15,6 +15,7 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
 import com.intellij.psi.PsiClass;
 import com.intellij.psi.PsiElement;
+import com.intellij.psi.PsiJavaFile;
 import com.intellij.psi.impl.source.PsiJavaFileImpl;
 import com.intellij.psi.javadoc.PsiDocComment;
 import org.apache.commons.lang3.StringUtils;
@@ -70,12 +71,22 @@ public class StructDTOModifyAction extends AnAction {
         String dtoClassDocComment = Optional.ofNullable(dtoPsiClass.getDocComment()).map(PsiDocComment::getText)
                 .orElse("");
         // 尝试从 文档注释中获取 实体类名
-        if (!ReUtil.contains("\\{@link (\\S+) \\}", dtoClassDocComment)) {
+        if (!ReUtil.contains("\\{@link *(\\S+) *\\}", dtoClassDocComment)) {
             Messages.showMessageDialog(project, "当前DTO类没有指定实体类", "错误", Messages.getErrorIcon());
             return;
         }
 
-        String mainEntityClass = ReUtil.getGroup1("\\{@link (\\S+) \\}", dtoClassDocComment);
+        String mainEntityClass;
+        String mainEntityClassFromLink = ReUtil.getGroup1("\\{@link *(\\S+) *\\}", dtoClassDocComment);
+        // 如果 mainEntityClass 中不包含 . , 则需要通过 import 去进行二次匹配
+        if (!mainEntityClassFromLink.contains(".")) {
+             mainEntityClass = PsiJavaFileUtil.getQualifiedNameImportSet((PsiJavaFile) dtoPsiClass.getContainingFile())
+                    .stream().filter(s -> s.endsWith("." + mainEntityClassFromLink))
+                    .findFirst().orElse(mainEntityClassFromLink);
+        }else{
+            mainEntityClass = mainEntityClassFromLink;
+        }
+        
         Collection<PsiClass> entityClass = PsiJavaFileUtil.getAnnotationPsiClass(project,
                 "com.easy.query.core.annotation.Table");
         Map<String, PsiClass> entityWithClass = new HashMap<>();
