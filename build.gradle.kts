@@ -20,7 +20,7 @@ java {
 intellijPlatform {
     pluginConfiguration {
         name = "com.easy-query"
-        version = "0.0.73"
+        version = "0.0.74"
         ideaVersion {
             sinceBuild = "243"
             untilBuild = provider { null }

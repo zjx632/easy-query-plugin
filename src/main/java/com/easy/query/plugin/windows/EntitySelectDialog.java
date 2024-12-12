@@ -259,7 +259,7 @@ public class EntitySelectDialog extends JDialog {
         dispose();
     }
 
-    private boolean ok0(String entityName) {
+    public boolean ok0(String entityName) {
         Project project = structDTOEntityContext.getProject();
         Map<String, PsiClass> entityClass = structDTOEntityContext.getEntityClass();
         PsiClass psiClass = entityClass.get(entityName);
@@ -276,6 +276,11 @@ public class EntitySelectDialog extends JDialog {
         StructDTOUtil.parseClassList(project, entityName, psiClass, structDTOEntityContext.getEntityClass(), entityProps, classNodes, imports, new HashSet<>());
         StructDTOContext structDTOContext = new StructDTOContext(project, structDTOEntityContext.getPath(), structDTOEntityContext.getPackageName(), structDTOEntityContext.getModule(), entityProps);
         structDTOContext.getImports().addAll(imports);
+
+        // 传递 DTO className 到下一个窗口上下文
+        String dtoClassName = structDTOEntityContext.getDtoClassName();
+        structDTOContext.setDtoClassName(dtoClassName);
+
         StructDTODialog structDTODialog = new StructDTODialog(structDTOContext, classNodes);
 
         structDTODialog.setVisible(true);
