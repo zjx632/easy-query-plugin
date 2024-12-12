@@ -27,6 +27,10 @@
     </ul>
     ]]></description>
     <change-notes><![CDATA[
+    <h3>0.0.74</h3>
+    <ul>
+    <li>实现structDTO modify (作者:https://github.com/link2fun)</li>
+    </ul>
     <h3>0.0.73</h3>
     <ul>
     <li>支持2024.3</li>
