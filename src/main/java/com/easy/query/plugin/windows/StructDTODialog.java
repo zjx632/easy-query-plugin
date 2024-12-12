@@ -342,8 +342,8 @@ public class StructDTODialog extends JDialog {
                     .collect(Collectors.toList());
                 // 过滤后的属性值拼接起来
                 String attrText = columnAttrList.stream().map(attr -> ((PsiNameValuePairImpl) attr).getText()).collect(Collectors.joining(", "));
-                // 再拼成 @Navigate 注解文本
-                String replacement = "@Column(" + attrText + ")";
+                // 再拼成 @Column 注解文本
+                String replacement = StrUtil.isBlank(attrText)?"": "@Column(" + attrText + ")";
 
                 if (!StrUtil.equalsAny(psiAnnoColumn.getText(), replacement)) {
                     // 将原本的注解文本中的 @Navigate 替换为新的
@@ -351,6 +351,23 @@ public class StructDTODialog extends JDialog {
                     structDTOProp.setPropText(newPropText);
                 }
             }
+
+            // 获取字段上的注解, 一些其他ORM框架的注解可以直接移除, 方便混用的时候生成
+            if (psiField != null) {
+                PsiAnnotation[] annotationArr = psiField.getAnnotations();
+                for (PsiAnnotation annotation : annotationArr) {
+                    String qualifiedName = annotation.getQualifiedName();
+                    if (StrUtil.startWithAny(qualifiedName,
+                        "com.baomidou.mybatisplus.annotation" // 移除 MyBatisPlus 的注解
+                    //
+                    )) {
+                        structDTOProp.setPropText(structDTOProp.getPropText().replace(annotation.getText(), ""));
+                    }
+                }
+                // 处理完了之后可能会出现多个换行符连一起, 需要替换成一个 \n \n -> \n
+                structDTOProp.setPropText(structDTOProp.getPropText().replaceAll("\n\\s+\n", "\n"));
+            }
+
             base.addProp(structDTOProp);
         }
 
