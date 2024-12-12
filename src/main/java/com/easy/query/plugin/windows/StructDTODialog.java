@@ -1,6 +1,7 @@
 package com.easy.query.plugin.windows;
 
 import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.util.ArrayUtil;
 import cn.hutool.core.util.StrUtil;
 import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.TypeReference;
@@ -15,11 +16,14 @@ import com.easy.query.plugin.core.util.NotificationUtils;
 import com.easy.query.plugin.core.util.PsiJavaFileUtil;
 import com.easy.query.plugin.core.validator.InputAnyValidatorImpl;
 import com.easy.query.plugin.windows.ui.dto2ui.JCheckBoxTree;
+import com.intellij.lang.jvm.annotation.JvmAnnotationAttribute;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
+import com.intellij.psi.PsiAnnotation;
 import com.intellij.psi.PsiClass;
 import com.intellij.psi.PsiField;
 import com.intellij.psi.PsiJavaFile;
+import com.intellij.psi.impl.source.tree.java.PsiNameValuePairImpl;
 import org.apache.commons.lang3.StringUtils;
 
 import javax.swing.*;
@@ -180,7 +184,8 @@ public class StructDTODialog extends JDialog {
             return;
         }
 
-        List<TreeClassNode> nodeList = Arrays.stream(checkedPaths).filter(o -> o.getPathCount() > 1)
+        List<TreeClassNode> nodeList = Arrays.stream(checkedPaths)
+                .filter(o -> o.getPathCount() > 1)
                 .map(o -> {
                     int pathCount = o.getPathCount();
                     ClassNode classNode = (ClassNode) ((DefaultMutableTreeNode) o.getLastPathComponent())
@@ -236,6 +241,10 @@ public class StructDTODialog extends JDialog {
         // 从psiClass 中获取引入的包
         renderStructDTOContext.getImports().addAll(PsiJavaFileUtil.getQualifiedNameImportSet((PsiJavaFile) psiClass.getContainingFile()));
 
+        // 如果父类中有字段, 则需要把父类的 import 也加入进来
+        if (Objects.nonNull(psiClass.getSuperClass()) && ArrayUtil.isNotEmpty(psiClass.getSuperClass().getFields())) {
+            renderStructDTOContext.getImports().addAll(PsiJavaFileUtil.getQualifiedNameImportSet((PsiJavaFile) psiClass.getSuperClass().getContainingFile()));
+        }
 
         // 如果传入了DTO ClassName 说明是来自修改, 此时需要删除源文件
         renderStructDTOContext.setDeleteExistsFile(StrUtil.isNotBlank(structDTOContext.getDtoClassName()));
@@ -248,6 +257,10 @@ public class StructDTODialog extends JDialog {
         while (iterator.hasNext()) {
             TreeClassNode treeClassNode = iterator.next();
             ClassNode classNode = treeClassNode.getClassNode();
+            PsiField psiField = classNode.getPsiField();
+            PsiAnnotation psiAnnoColumn = classNode.getPsiAnnoColumn();
+            PsiAnnotation psiAnnoNavigate = classNode.getPsiAnnoNavigate();
+            PsiAnnotation psiAnnoNavigateFlat = classNode.getPsiAnnoNavigateFlat();
 
             if (StrUtil.isNotBlank(classNode.getSelfFullEntityType())) {
                 // 引入了类, 去把对应类的 import 全都提取出来放到里面
@@ -276,7 +289,10 @@ public class StructDTODialog extends JDialog {
                     classNode.getOwner(), classNode.isEntity(), classNode.getSelfEntityType(), classNode.getSort(),
                     treeClassNode.getPathCount(), classNode.getOwnerFullName(), classNode.getSelfFullEntityType());
             structDTOProp.setClassNode(classNode);
+
+
             if (structDTOProp.isEntity()) {
+                // 当前是实体
                 String dotName = "Internal" + StrUtil.upperFirst(classNode.getName());
                 if (!dtoNames.contains(dotName)) {
                     dtoNames.add(dotName);
@@ -286,60 +302,102 @@ public class StructDTODialog extends JDialog {
                 }
                 if (StringUtils.isNotBlank(structDTOProp.getPropText())) {
                     if (structDTOProp.getPropText().contains("<") && structDTOProp.getPropText().contains(">")) {
+                        // 是集合类型 如 List<T> 替换 <> 里面的原始类型为 innerDTO 类型
                         String regex = "<\\s*" + structDTOProp.getSelfEntityType() + "\\s*>";
                         String newPropText = structDTOProp.getPropText().replaceAll(regex,
                                 "<" + structDTOProp.getDtoName() + ">");
                         structDTOProp.setPropText(newPropText);
                     } else {
-
+                        // 原始类型
                         String regex = "private\\s+" + structDTOProp.getSelfEntityType();
                         String newPropText = structDTOProp.getPropText().replaceAll(regex,
                                 "private " + structDTOProp.getDtoName());
                         structDTOProp.setPropText(newPropText);
                     }
-                    if (structDTOProp.getPropText().contains("@Navigate(")
-                            && StringUtils.isNotBlank(classNode.getRelationType())) {
-                        // 匹配@Navigate注解及其括号内的内容
-                        String regex = "@Navigate\\(([^()]*(?:\\([^()]*\\)[^()]*)*)\\)";
+                    if (Objects.nonNull(psiAnnoNavigate)) {
+                        // 字段上有 @Navigate 注解, 精简下注解属性, 只保留 value
+                        List<JvmAnnotationAttribute> attrList = psiAnnoNavigate.getAttributes().stream()
+                            .filter(attr -> StrUtil.equalsAny(attr.getAttributeName(), "value"))
+                            .collect(Collectors.toList());
+                        // 过滤后的属性值拼接起来
+                        String attrText = attrList.stream().map(attr -> ((PsiNameValuePairImpl) attr).getText()).collect(Collectors.joining(", "));
+                        // 再拼成 @Navigate 注解文本
+                        String replacement = "@Navigate(" + attrText + ")";
+                        // 将原本的注解文本中的 @Navigate 替换为新的
+                        String newPropText = structDTOProp.getPropText().replace(psiAnnoNavigate.getText(), replacement);
 
-                        Pattern pattern = Pattern.compile(regex);
-                        Matcher matcher = pattern.matcher(structDTOProp.getPropText());
 
-                        if (matcher.find()) {
-                            String replacement = "@Navigate(value = " + classNode.getRelationType() + ")";
-                            String newPropText = matcher.replaceAll(replacement);
-                            structDTOProp.setPropText(newPropText);
-                        }
+                        structDTOProp.setPropText(newPropText);
                     }
                 }
                 renderStructDTOContext.getEntities().add(structDTOProp);
             }
-            if (structDTOProp.getPropText().contains("@Column(")) {
-                String regex = "@Column\\(.*?\\)";
-                if (StringUtils.isNotBlank(classNode.getConversion())
-                        || StringUtils.isNotBlank(classNode.getColumnValue())) {
-                    String columnText = "@Column(";
-                    if (StringUtils.isNotBlank(classNode.getColumnValue())) {
-                        columnText += "value = \"" + classNode.getColumnValue() + "\"";
-                        if (StringUtils.isNotBlank(classNode.getConversion())) {
-                            columnText += ",";
-                        }
-                    }
-                    if (StringUtils.isNotBlank(classNode.getConversion())) {
-                        columnText += "conversion = " + classNode.getConversion();
-                    }
-                    columnText += ")";
-                    String newPropText = structDTOProp.getPropText().replaceAll(regex, columnText);
-                    // (conversion = " + classNode.getConversion() + ")
+            if (psiAnnoColumn!=null) {
 
-                    structDTOProp.setPropText(newPropText);
-                } else {
-                    String newPropText = structDTOProp.getPropText().replaceAll(regex, "");
+                // 从注解上获取 Column 的 value , conversion,complexPropType
+                List<JvmAnnotationAttribute> columnAttrList = psiAnnoColumn.getAttributes().stream()
+                    .filter(attr -> StrUtil.equalsAny(attr.getAttributeName(), "value", "conversion", "complexPropType"))
+                    // 过滤下值为空的
+                    .filter(attr -> Objects.nonNull(attr.getAttributeValue()))
+                    .collect(Collectors.toList());
+                // 过滤后的属性值拼接起来
+                String attrText = columnAttrList.stream().map(attr -> ((PsiNameValuePairImpl) attr).getText()).collect(Collectors.joining(", "));
+                // 再拼成 @Column 注解文本
+                String replacement = StrUtil.isBlank(attrText)?"": "@Column(" + attrText + ")";
+
+                if (!StrUtil.equalsAny(psiAnnoColumn.getText(), replacement)) {
+                    // 将原本的注解文本中的 @Navigate 替换为新的
+                    String newPropText = structDTOProp.getPropText().replace(psiAnnoColumn.getText(), replacement);
                     structDTOProp.setPropText(newPropText);
                 }
             }
+
+            // 获取字段上的注解, 一些其他ORM框架的注解可以直接移除, 方便混用的时候生成
+            if (psiField != null) {
+                PsiAnnotation[] annotationArr = psiField.getAnnotations();
+                for (PsiAnnotation annotation : annotationArr) {
+                    String qualifiedName = annotation.getQualifiedName();
+                    if (StrUtil.startWithAny(qualifiedName,
+                        "com.baomidou.mybatisplus.annotation" // 移除 MyBatisPlus 的注解
+                    //
+                    )) {
+                        structDTOProp.setPropText(structDTOProp.getPropText().replace(annotation.getText(), ""));
+                    }
+                }
+                // 处理完了之后可能会出现多个换行符连一起, 需要替换成一个 \n \n -> \n
+                structDTOProp.setPropText(structDTOProp.getPropText().replaceAll("\n\\s+\n", "\n"));
+            }
+
             base.addProp(structDTOProp);
         }
+
+
+        // 最终清理下 import, 有些 import 没有必要
+        renderStructDTOContext.getImports().removeIf(imp -> {
+            // 自动生成的 Proxy类 在 dto中无用, 所以需要移除
+            if (StrUtil.contains(imp, ".proxy.") && StrUtil.endWith(imp, "Proxy")) {
+                return true;
+            }
+            // eq 一些在实体上的注解, 在 DTO上也没有用
+            if (StrUtil.equalsAny(imp,
+                    "com.easy.query.core.annotation.EntityProxy",
+                    "com.easy.query.core.annotation.Table",
+                    "com.easy.query.core.annotation.EasyAlias",
+                    "lombok.experimental.FieldNameConstants",
+                    "com.baomidou.mybatisplus.annotation.Version",
+                    "com.easy.query.core.proxy.ProxyEntityAvailable"
+            )) {
+                return true;
+            }
+            // 以某些开头的也移除掉
+            if (StrUtil.startWithAny(imp,
+                    "com.baomidou.mybatisplus.annotation"
+                    )) {
+                return true;
+            }
+            // keep
+            return false;
+        });
 
         boolean b = RenderEasyQueryTemplate.renderStructDTOType(renderStructDTOContext);
         if (!b) {
