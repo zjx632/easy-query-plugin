@@ -69,7 +69,7 @@ public class StructDTOModifyAction extends AnAction {
         PsiClass dtoPsiClass = psiClasses[0];
         // 获取当前的DTO 文档注释
         String dtoClassDocComment = Optional.ofNullable(dtoPsiClass.getDocComment()).map(PsiDocComment::getText)
-                .orElse("");
+            .orElse("");
         // 尝试从 文档注释中获取 实体类名
         if (!ReUtil.contains("\\{@link *(\\S+) *\\}", dtoClassDocComment)) {
             Messages.showMessageDialog(project, "当前DTO类没有指定实体类", "错误", Messages.getErrorIcon());
@@ -80,16 +80,20 @@ public class StructDTOModifyAction extends AnAction {
         String mainEntityClassFromLink = ReUtil.getGroup1("\\{@link *(\\S+) *\\}", dtoClassDocComment);
         // 如果 mainEntityClass 中不包含 . , 则需要通过 import 去进行二次匹配
         if (!mainEntityClassFromLink.contains(".")) {
-             mainEntityClass = PsiJavaFileUtil.getQualifiedNameImportSet((PsiJavaFile) dtoPsiClass.getContainingFile())
-                    .stream().filter(s -> s.endsWith("." + mainEntityClassFromLink))
-                    .findFirst().orElse(mainEntityClassFromLink);
-        }else{
+            mainEntityClass = PsiJavaFileUtil.getQualifiedNameImportSet((PsiJavaFile) dtoPsiClass.getContainingFile())
+                .stream().filter(s -> s.endsWith("." + mainEntityClassFromLink))
+                .findFirst().orElseGet(() -> {
+                    // 说明是一个包下面的
+                    return ((PsiJavaFile) dtoPsiClass.getParent()).getPackageName() + "." + mainEntityClassFromLink;
+                });
+        } else {
             mainEntityClass = mainEntityClassFromLink;
         }
-        
+
         Collection<PsiClass> entityClass = PsiJavaFileUtil.getAnnotationPsiClass(project,
-                "com.easy.query.core.annotation.Table");
+            "com.easy.query.core.annotation.Table");
         Map<String, PsiClass> entityWithClass = new HashMap<>();
+
         for (PsiClass entityPsiClass : entityClass) {
             if (StrUtil.equals(entityPsiClass.getQualifiedName(), mainEntityClass)) {
                 entityWithClass.put(entityPsiClass.getQualifiedName(), entityPsiClass);
@@ -114,15 +118,15 @@ public class StructDTOModifyAction extends AnAction {
         String comPath = StrUtil.subAfter(path, "src/main/java/", true);
 
         File comFile = new File(comPath);
-        String packageName = comFile.getParent().replace("\\",".");
+        String packageName = comFile.getParent().replace("\\", ".");
         String dtoClassName = FileUtil.mainName(comFile);
 
 
+        StructDTOEntityContext dtoStructContext = new StructDTOEntityContext(project, path, packageName, module, entityWithClass);
+        dtoStructContext.setDtoClassName(dtoClassName); // 暂存现在的类名, 方便后面回填
+        dtoStructContext.setDtoPsiClass(dtoPsiClass); // 暂存DTO PsiClass 方便后面从 psiClass 中获取方法信息
 
-        StructDTOEntityContext structDTOEntityContext = new StructDTOEntityContext(project, path, packageName, module, entityWithClass);
-        structDTOEntityContext.setDtoClassName(dtoClassName); // 暂存现在的类名, 方便后面回填
-
-        EntitySelectDialog entitySelectDialog = new EntitySelectDialog(structDTOEntityContext);
+        EntitySelectDialog entitySelectDialog = new EntitySelectDialog(dtoStructContext);
         SwingUtilities.invokeLater(() -> {
 //            entitySelectDialog.setVisible(true);
             // 跳过选择实体窗口, 直接进入字段选择

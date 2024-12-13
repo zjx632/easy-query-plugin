@@ -25,6 +25,7 @@ public class StructDTOUtil {
     public static void parseClassList(Project project, String entityName, PsiClass entityClass, Map<String, PsiClass> entityWithClass, Map<String, Map<String, ClassNode>> entityProps, List<ClassNode> classNodeList, Set<String> imports, Set<String> ignoreColumns) {
 
         ClassNode classNode = new ClassNode(entityName, null, 0, false, true, entityClass.getName(), null, null, entityClass.getQualifiedName(), BeanPropTypeEnum.GET);
+        classNode.setPsiClass(entityClass);
         classNodeList.add(classNode);
 
         addClassProps(project, entityClass, null, classNode, entityWithClass, entityProps, null, imports, ignoreColumns, 0);
