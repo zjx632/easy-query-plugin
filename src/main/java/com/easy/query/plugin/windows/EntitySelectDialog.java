@@ -279,7 +279,9 @@ public class EntitySelectDialog extends JDialog {
 
         // 传递 DTO className 到下一个窗口上下文
         String dtoClassName = structDTOEntityContext.getDtoClassName();
+        PsiClass dtoPsiClass = structDTOEntityContext.getDtoPsiClass();
         structDTOContext.setDtoClassName(dtoClassName);
+        structDTOContext.setDtoPsiClass(dtoPsiClass);
 
         StructDTODialog structDTODialog = new StructDTODialog(structDTOContext, classNodes);
 
