@@ -118,7 +118,7 @@ public class StructDTOModifyAction extends AnAction {
         String comPath = StrUtil.subAfter(path, "src/main/java/", true);
 
         File comFile = new File(comPath);
-        String packageName = comFile.getParent().replace("\\", ".");
+        String packageName = comFile.getParent().replace("\\", ".").replaceAll("/", ".");
         String dtoClassName = FileUtil.mainName(comFile);
 
 
