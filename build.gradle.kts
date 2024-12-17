@@ -20,7 +20,7 @@ java {
 intellijPlatform {
     pluginConfiguration {
         name = "com.easy-query"
-        version = "0.0.74"
+        version = "0.0.75"
         ideaVersion {
             sinceBuild = "243"
             untilBuild = provider { null }
@@ -43,4 +43,10 @@ dependencies {
 
     implementation("cn.hutool:hutool-core:5.8.25")
     implementation("com.alibaba.fastjson2:fastjson2:2.0.41")
+
+    // 引入 lombok
+    compileOnly("org.projectlombok:lombok:1.18.34")
+    annotationProcessor("org.projectlombok:lombok:1.18.34")
+    testCompileOnly("org.projectlombok:lombok:1.18.34")
+    testAnnotationProcessor("org.projectlombok:lombok:1.18.34")
 }
